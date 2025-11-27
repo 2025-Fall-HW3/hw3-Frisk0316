@@ -36,8 +36,9 @@ end = "2024-04-01"
 
 # Initialize df and df_returns
 df = pd.DataFrame()
+# 下載數據，注意這裡會在 import 時執行，可能會花一點時間
 for asset in assets:
-    raw = yf.download(asset, start=start, end=end, auto_adjust = False)
+    raw = yf.download(asset, start=start, end=end, auto_adjust=False)
     df[asset] = raw['Adj Close']
 
 df_returns = df.pct_change().fillna(0)
@@ -62,7 +63,14 @@ class EqualWeightPortfolio:
         """
         TODO: Complete Task 1 Below
         """
-
+        # 1. 計算資產數量
+        n_assets = len(assets)
+        # 2. 設定等權重 (1/N)
+        weight = 1.0 / n_assets
+        
+        # 3. 將權重填入對應資產
+        self.portfolio_weights[assets] = weight
+        
         """
         TODO: Complete Task 1 Above
         """
@@ -114,7 +122,23 @@ class RiskParityPortfolio:
         TODO: Complete Task 2 Below
         """
 
-
+        for i in range(self.lookback + 1, len(df)):
+            
+            # 1. 取得視窗內的報酬率數據 (不包含當天)
+            R_n = df_returns[assets].iloc[i - self.lookback : i]
+            
+            # 2. 計算波動率 (標準差)
+            volatility = R_n.std()
+            
+            # 3. 計算波動率倒數 (Inverse Volatility)
+            inv_volatility = 1.0 / volatility
+            
+            # 4. Normalization
+            sum_inv_vol = inv_volatility.sum()
+            weights = inv_volatility / sum_inv_vol
+            
+            # 5. 填入權重
+            self.portfolio_weights.loc[df.index[i], assets] = weights
 
         """
         TODO: Complete Task 2 Above
@@ -188,10 +212,18 @@ class MeanVariancePortfolio:
                 TODO: Complete Task 3 Below
                 """
 
-                # Sample Code: Initialize Decision w and the Objective
-                # NOTE: You can modify the following code
-                w = model.addMVar(n, name="w", ub=1)
-                model.setObjective(w.sum(), gp.GRB.MAXIMIZE)
+                # 1. 定義變數 w (0 <= w <= 1)
+                w = model.addMVar(n, lb=0.0, ub=1.0, name="w")
+                
+                # 2. 定義目標函數: maximize (mu.T * w - (gamma/2) * w.T * Sigma * w)
+                return_term = mu @ w
+                risk_term = w @ Sigma @ w
+                
+                obj = return_term - 0.5 * gamma * risk_term
+                model.setObjective(obj, gp.GRB.MAXIMIZE)
+                
+                # 3. 限制條件: 權重總和為 1 (Full investment)
+                model.addConstr(w.sum() == 1, name="budget")
 
                 """
                 TODO: Complete Task 3 Above
