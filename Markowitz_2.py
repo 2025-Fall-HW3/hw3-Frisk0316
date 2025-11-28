@@ -68,6 +68,16 @@ class MyPortfolio:
         )
 
         """
+        notice: the original self.portfolio_weights is down below:
+        
+        self.portfolio_weights = pd.DataFrame(
+            index=self.price.index, columns=self.price.columns
+        )
+        
+        we have to initialization the weights to 0.0, or the portfolio position will exceeds 1.
+        """
+
+        """
         TODO: Complete Task 4 Below
         """
         # 策略：暴力解
